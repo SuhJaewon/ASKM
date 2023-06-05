@@ -48,7 +48,7 @@ def receipt_analysis():
         # 전처리된 이미지 출력
         st.image(preprocessed_image, caption="전처리된 이미지", use_column_width=True)
 
-        my_config="-l eng+vie --oem 3 --psm 6"
+        my_config="-l new+new1 --oem 3 --psm 3"
 
         # OCR 적용
         extracted_text = pytesseract.image_to_string(preprocessed_image,config=my_config)  # 영어와 베트남어 언어 모델 설정
