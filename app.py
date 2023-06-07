@@ -20,16 +20,11 @@ def preprocess_image(image: Image) -> Image:
     resized_image = image.resize((image.width * upscale_ratio, image.height * upscale_ratio))
 
     # 이미지 선명도 향상
-    enhanced_image = cv2.detailEnhance(conv_pil_to_cv(resized_image), sigma_s=40, sigma_r=100)
+    enhanced_image = cv2.detailEnhance(conv_pil_to_cv(resized_image), sigma_s=60, sigma_r=10)
 
     # OpenCV의 numpy 배열을 PIL 이미지로 변환하여 반환
     return Image.fromarray(cv2.cvtColor(enhanced_image, cv2.COLOR_BGR2RGB))
 
-
-# 후처리 작업 함수
-def postprocess_text(text: str) -> str:
-    # 특정 패턴 인식 또는 문법적 규칙 적용 등의 후처리 작업을 수행할 수 있습니다.
-    return text
 
 # 기능 1: 영수증 자동 분석 기능
 def receipt_analysis():
@@ -47,26 +42,26 @@ def receipt_analysis():
         # 전처리된 이미지 출력
         st.image(preprocessed_image, caption="전처리된 이미지", use_column_width=True)
 
-        my_config = "-l new+new1 --oem 3 --psm 3"
+        my_config = "-l new+new1 --oem 1 --psm 6 -c preserve_interword_spaces=1"
 
         # OCR 적용
         extracted_text = pytesseract.image_to_string(preprocessed_image, config=my_config)  # 영어와 베트남어 언어 모델 설정
 
-        # 후처리 작업
-        processed_text = postprocess_text(extracted_text)
-
         # 추출된 텍스트 출력
         st.subheader("추출된 텍스트")
-        st.write(processed_text)
+        st.text(extracted_text)
+        print(extracted_text)
 
 
 # 기능 2: 수입과 지출 관리
 def income_expense_management():
     st.write("수입과 지출 관리 기능 구현 예시")
 
+
 # 기능 3: 예산 관리
 def budget_management():
     st.write("예산 관리 기능 구현 예시")
+
 
 # 메인 페이지 레이아웃
 def main():
@@ -82,6 +77,7 @@ def main():
         income_expense_management()
     elif menu == "예산 관리":
         budget_management()
+
 
 # 웹앱 실행
 if __name__ == "__main__":
