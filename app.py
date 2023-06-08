@@ -1,9 +1,10 @@
-import streamlit as st
 import cv2
 import pytesseract
 import numpy as np
 from PIL import Image
 import sys
+import streamlit as st
+import re
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -26,10 +27,10 @@ def preprocess_image(image: Image) -> Image:
     # OpenCV의 numpy 배열을 PIL 이미지로 변환하여 반환
     return Image.fromarray(cv2.cvtColor(enhanced_image, cv2.COLOR_BGR2RGB))
 
-# 영수증 자동 분석 함수
+# 영수증 자동 분석
 def receipt_analysis():
-    st.title("영수증 자동 분석")
-    st.write("영수증 이미지를 업로드하여 자동 분석합니다.")
+    st.title("영수증 분류기")
+    st.write("영수증 이미지를 업로드하여 수량과 가격을 분류합니다.")
 
     uploaded_image = st.file_uploader("영수증 이미지 업로드", type=["jpg", "jpeg", "png"])
 
@@ -69,26 +70,43 @@ def receipt_analysis():
         # 잘린 이미지 출력
         st.image(trimmed_image_pil, caption="자른 이미지", use_column_width=True)
 
-        my_config = "-l new+new1 --oem 1 --psm 6 -c preserve_interword_spaces=1"
+        my_config = "-l new+new1 --oem 1 --psm 4 -c preserve_interword_spaces=1"
 
         # OCR 적용
         extracted_text = pytesseract.image_to_string(trimmed_image_pil, config=my_config)  # 영어와 베트남어 언어 모델 설정
 
-        # 추출된 텍스트 출력
-        st.subheader("추출된 텍스트")
-        st.text(extracted_text)
-        print(extracted_text)
+        # 추출된 텍스트 반환
+        return extracted_text
 
+def extract_product_info(text):
+    # 텍스트에서 상품명과 가격을 추출하기 위한 정규 표현식
+    item_pattern = r'([\w\s]+)\s+(\d+\.\d+)\s+([\d,]+)'
+
+    product_info = []
+
+    # 텍스트에서 상품명과 가격 추출
+    matches = re.findall(item_pattern, text)
+    for match in matches:
+        product_name = match[0].replace('ITEM NAME', '').replace('0TY', '').replace('AMOUNT', '').replace('QTY','').strip()
+        quantity = float(match[1])
+        price = match[2].replace(',', '')
+        product_info.append((product_name, quantity, price))
+
+    return product_info
 
 # 기능 2: 수입과 지출 관리
-def income_expense_management():
-    st.write("수입과 지출 관리 기능 구현 예시")
-
+def income_expense_management(ocr_text):
+    product_info = extract_product_info(ocr_text)
+    for product in product_info:
+        product_name, quantity, price = product
+        st.write(f'상품명: {product_name}')
+        st.write(f'수량: {quantity}')
+        st.write(f'가격: {price} 원')
+        st.write('---')
 
 # 기능 3: 예산 관리
 def budget_management():
     st.write("예산 관리 기능 구현 예시")
-
 
 # 메인 페이지 레이아웃
 def main():
@@ -99,12 +117,15 @@ def main():
 
     # 메뉴에 따른 기능 호출
     if menu == "영수증 자동 분석":
-        receipt_analysis()
+        ocr_text = receipt_analysis()
+        if ocr_text:
+            income_expense_management(ocr_text)
+
     elif menu == "수입과 지출 관리":
-        income_expense_management()
+        st.write("수입과 지출 관리 기능을 선택하셨습니다.")
+
     elif menu == "예산 관리":
         budget_management()
-
 
 # 웹앱 실행
 if __name__ == "__main__":
