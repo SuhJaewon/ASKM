@@ -1,6 +1,7 @@
-from PIL import Image, ImageEnhance
+import cv2
 import pytesseract
 import numpy as np
+from PIL import Image
 import sys
 import streamlit as st
 import re
@@ -10,6 +11,10 @@ Image.MAX_IMAGE_PIXELS = None
 # Tesseract OCR 엔진 경로 설정
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 
+# PIL 이미지를 OpenCV의 numpy 배열로 변환하는 함수
+def conv_pil_to_cv(img: Image) -> np.ndarray:
+    return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+
 # 이미지 전처리 함수
 def preprocess_image(image: Image) -> Image:
     # 이미지 업스케일링
@@ -17,10 +22,10 @@ def preprocess_image(image: Image) -> Image:
     resized_image = image.resize((image.width * upscale_ratio, image.height * upscale_ratio))
 
     # 이미지 선명도 향상
-    enhancer = ImageEnhance.Detail(resized_image)
-    enhanced_image = enhancer.enhance(10.0)
+    enhanced_image = cv2.detailEnhance(conv_pil_to_cv(resized_image), sigma_s=60, sigma_r=10)
 
-    return enhanced_image
+    # OpenCV의 numpy 배열을 PIL 이미지로 변환하여 반환
+    return Image.fromarray(cv2.cvtColor(enhanced_image, cv2.COLOR_BGR2RGB))
 
 # 영수증 자동 분석
 def receipt_analysis():
@@ -35,14 +40,17 @@ def receipt_analysis():
         # 이미지 전처리
         preprocessed_image = preprocess_image(image)
 
-        # 이미지 처리
-        image_gray = preprocessed_image.convert("L")
-        image_np = np.array(image_gray)
-        thresh1 = np.where(image_np > 127, 255, 0).astype(np.uint8)
-        edges = Image.fromarray(thresh1).filter(ImageFilter.FIND_EDGES)
+        # OpenCV 배열로 변환
+        image_cv = conv_pil_to_cv(preprocessed_image)
 
-        # contours 추출
-        contours, _ = cv2.findContours(np.array(edges), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # 이미지 처리
+        image_gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(image_gray, ksize=(9, 9), sigmaX=0)
+        ret, thresh1 = cv2.threshold(blur, 127, 255, cv2.THRESH_BINARY)
+        edged = cv2.Canny(blur, 10, 250)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+        closed = cv2.morphologyEx(edged, cv2.MORPH_CLOSE, kernel)
+        contours, _ = cv2.findContours(closed.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         # 컨투어 박스 추출
         x_min, x_max = sys.maxsize, -sys.maxsize
@@ -56,8 +64,8 @@ def receipt_analysis():
             y_max = max(y_max, y + h)
 
         # 이미지 자르기
-        trimmed_image = image_np[y_min:y_max, x_min:x_max]
-        trimmed_image_pil = Image.fromarray(trimmed_image)
+        trimmed_image = image_cv[y_min:y_max, x_min:x_max]
+        trimmed_image_pil = Image.fromarray(cv2.cvtColor(trimmed_image, cv2.COLOR_BGR2RGB))
 
         # 잘린 이미지 출력
         st.image(trimmed_image_pil, caption="자른 이미지", use_column_width=True)
