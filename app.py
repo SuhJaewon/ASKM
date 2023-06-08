@@ -3,6 +3,7 @@ import cv2
 import pytesseract
 import numpy as np
 from PIL import Image
+import sys
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -25,8 +26,7 @@ def preprocess_image(image: Image) -> Image:
     # OpenCV의 numpy 배열을 PIL 이미지로 변환하여 반환
     return Image.fromarray(cv2.cvtColor(enhanced_image, cv2.COLOR_BGR2RGB))
 
-
-# 기능 1: 영수증 자동 분석 기능
+# 영수증 자동 분석 함수
 def receipt_analysis():
     st.title("영수증 자동 분석")
     st.write("영수증 이미지를 업로드하여 자동 분석합니다.")
@@ -39,13 +39,40 @@ def receipt_analysis():
         # 이미지 전처리
         preprocessed_image = preprocess_image(image)
 
-        # 전처리된 이미지 출력
-        st.image(preprocessed_image, caption="전처리된 이미지", use_column_width=True)
+        # OpenCV 배열로 변환
+        image_cv = conv_pil_to_cv(preprocessed_image)
+
+        # 이미지 처리
+        image_gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(image_gray, ksize=(9, 9), sigmaX=0)
+        ret, thresh1 = cv2.threshold(blur, 127, 255, cv2.THRESH_BINARY)
+        edged = cv2.Canny(blur, 10, 250)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+        closed = cv2.morphologyEx(edged, cv2.MORPH_CLOSE, kernel)
+        contours, _ = cv2.findContours(closed.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # 컨투어 박스 추출
+        x_min, x_max = sys.maxsize, -sys.maxsize
+        y_min, y_max = sys.maxsize, -sys.maxsize
+
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            x_min = min(x_min, x)
+            x_max = max(x_max, x + w)
+            y_min = min(y_min, y)
+            y_max = max(y_max, y + h)
+
+        # 이미지 자르기
+        trimmed_image = image_cv[y_min:y_max, x_min:x_max]
+        trimmed_image_pil = Image.fromarray(cv2.cvtColor(trimmed_image, cv2.COLOR_BGR2RGB))
+
+        # 잘린 이미지 출력
+        st.image(trimmed_image_pil, caption="자른 이미지", use_column_width=True)
 
         my_config = "-l new+new1 --oem 1 --psm 6 -c preserve_interword_spaces=1"
 
         # OCR 적용
-        extracted_text = pytesseract.image_to_string(preprocessed_image, config=my_config)  # 영어와 베트남어 언어 모델 설정
+        extracted_text = pytesseract.image_to_string(trimmed_image_pil, config=my_config)  # 영어와 베트남어 언어 모델 설정
 
         # 추출된 텍스트 출력
         st.subheader("추출된 텍스트")
