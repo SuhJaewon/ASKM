@@ -5,7 +5,6 @@ from PIL import Image
 import sys
 import streamlit as st
 import re
-
 Image.MAX_IMAGE_PIXELS = None
 
 # Tesseract OCR 엔진 경로 설정
@@ -101,7 +100,7 @@ def income_expense_management(ocr_text):
         product_name, quantity, price = product
         st.write(f'상품명: {product_name}')
         st.write(f'수량: {quantity}')
-        st.write(f'가격: {price} 원')
+        st.write(f'가격: {price} 동')
         st.write('---')
 
 # 기능 3: 예산 관리
