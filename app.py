@@ -31,12 +31,11 @@ def preprocess_image(image: Image) -> Image:
 def receipt_analysis(total_budget):
     with col2:
         with st.spinner('잠시 기다려주세요...'):
-            time.sleep(100000)
-            if int(total_budget) > 0:
-                st.success('완료!')
-                st.info("영수증 이미지를 업로드하여 수량과 가격을 분류합니다.")
-                uploaded_image = st.file_uploader("영수증 이미지 업로드", type=["jpg", "jpeg", "png"])
-                
+            time.sleep(6)
+            st.success('완료!')
+            st.info("영수증 이미지를 업로드하여 수량과 가격을 분류합니다.")
+            uploaded_image = st.file_uploader("영수증 이미지 업로드", type=["jpg", "jpeg", "png"])
+                    
 
             if uploaded_image is not None:
                 image = Image.open(uploaded_image)
