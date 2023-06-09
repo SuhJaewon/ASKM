@@ -10,26 +10,19 @@ import matplotlib.pyplot as plt
 
 Image.MAX_IMAGE_PIXELS = None
 
-# Tesseract OCR 엔진 경로 설정
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 
-# PIL 이미지를 OpenCV의 numpy 배열로 변환하는 함수
 def conv_pil_to_cv(img: Image) -> np.ndarray:
     return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
 
-# 이미지 전처리 함수
 def preprocess_image(image: Image) -> Image:
-    # 이미지 업스케일링
     upscale_ratio = 7
     resized_image = image.resize((image.width * upscale_ratio, image.height * upscale_ratio))
 
-    # 이미지 선명도 향상
     enhanced_image = cv2.detailEnhance(conv_pil_to_cv(resized_image), sigma_s=60, sigma_r=10)
 
-    # OpenCV의 numpy 배열을 PIL 이미지로 변환하여 반환
     return Image.fromarray(cv2.cvtColor(enhanced_image, cv2.COLOR_BGR2RGB))
 
-# 영수증 자동 분석
 def receipt_analysis():
     st.title("영수증 분류기")
     st.write("영수증 이미지를 업로드하여 수량과 가격을 분류합니다.")
@@ -39,13 +32,10 @@ def receipt_analysis():
     if uploaded_image is not None:
         image = Image.open(uploaded_image)
 
-        # 이미지 전처리
         preprocessed_image = preprocess_image(image)
 
-        # OpenCV 배열로 변환
         image_cv = conv_pil_to_cv(preprocessed_image)
 
-        # 이미지 처리
         image_gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(image_gray, ksize=(11, 11), sigmaX=0)
         ret, thresh1 = cv2.threshold(blur, 127, 255, cv2.THRESH_BINARY)
@@ -54,7 +44,6 @@ def receipt_analysis():
         closed = cv2.morphologyEx(edged, cv2.MORPH_CLOSE, kernel)
         contours, _ = cv2.findContours(closed.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # 컨투어 박스 추출
         x_min, x_max = sys.maxsize, -sys.maxsize
         y_min, y_max = sys.maxsize, -sys.maxsize
 
@@ -65,27 +54,21 @@ def receipt_analysis():
             y_min = min(y_min, y)
             y_max = max(y_max, y + h)
 
-        # 이미지 자르기
         trimmed_image = image_cv[y_min:y_max, x_min:x_max]
         trimmed_image_pil = Image.fromarray(cv2.cvtColor(trimmed_image, cv2.COLOR_BGR2RGB))
 
-        # 잘린 이미지 출력
         st.image(trimmed_image_pil, caption="자른 이미지", use_column_width=True)
 
         my_config = "-l new+new1 --oem 1 --psm 4 -c preserve_interword_spaces=1"
 
-        # OCR 적용
         extracted_text = pytesseract.image_to_string(trimmed_image_pil, config=my_config)
 
-        # 추출된 텍스트 반환
         return extracted_text
 
 def extract_product_info(text):
-    # 텍스트에서 상품명과 가격을 추출하기 위한 정규 표현식
     item_pattern = r'([\w\s]+)\s+(\d+\.\d+)\s+([\d,]+)'
     product_info = []
 
-    # 텍스트에서 상품명과 가격 추출
     matches = re.findall(item_pattern, text)
     for match in matches:
         product_name = match[0].replace('ITEM NAME', '').replace('ary','').replace('0TY', '').replace('AMOUNT', '').replace('QTY','').strip()
@@ -95,46 +78,62 @@ def extract_product_info(text):
 
     return product_info
 
-# 기능 2: 수입과 지출 관리
 def income_expense_management(ocr_text):
+    productinfos = extract_product_info(ocr_text)
+    totalapp = st.text_input('예산을 입력해주세요', value='0')
+
+    totalspn = 0
+    for row in productinfos:
+        totalspn += int(row[2])
+        if totalspn > int(totalapp):
+            st.write('예산 초과!')
+            break
+    moneyleft = int(totalapp) - int(totalspn)
+    foodspend = 0
+    otherspend = 0
+    for row in productinfos:
+        if '식품' in row[0]:  # '식품' 키워드를 기준으로 카테고리 분류
+            foodspend += int(row[2])
+        else:
+            otherspend += int(row[2])
+
+    left_used_categories = [moneyleft, foodspend, otherspend]
+
+    for i in range(len(left_used_categories)):
+        if left_used_categories[i] < 0:
+            left_used_categories[i] = 0
+
+    st.write(left_used_categories)
+    labels = ['Money Left', 'Food Spend', 'Other Spend']
+    my_colours = ["#dde5b6", "#adc178", "#a98467"]
+
+    fig, ax = plt.subplots()
+    ax.pie(left_used_categories, labels=labels, startangle=90, shadow=True, autopct='%.1f%%', colors=my_colours)
+    st.pyplot(fig)
 
     with open('dataset.csv', encoding='utf8') as f:
         data = csv.reader(f)
         next(data)
         data = list(data)
 
-        product_info = extract_product_info(ocr_text)
-        for product in product_info:
+        for product in productinfos:
             product_name, quantity, price = product
             st.write(f'상품명: {product_name}')
-            for item in product_name:
-                if item[0] in product_name:
-                    foodcategory = 'food'
-                else:
-                    foodcategory = 'others'
-
-            st.write(f'카테고리: {foodcategory}')
             st.write(f'수량: {quantity}')
             st.write(f'가격: {price} 동')
             st.write('---')
 
-    return product_info
+    return productinfos
 
-# 기능 3: 예산 관리
 def budget_management(product_info_list):
-    # 수입과 지출 내역을 기반으로 예산을 설정하고 분석하는 기능을 구현해야 합니다.
-    # 이를 위해 product_info_list를 활용하여 예산 설정 및 분석을 구현할 수 있습니다.
+    # 예산 관리 기능을 구현해야 합니다.
     pass
 
-
-# 메인 페이지 레이아웃
 def main():
     st.title("ASKM")
 
-    # 사이드바 메뉴
     menu = st.sidebar.selectbox("메뉴", ["영수증 자동 분석", "수입과 지출 관리", "예산 관리"])
 
-    # 메뉴에 따른 기능 호출
     if menu == "영수증 자동 분석":
         ocr_text = receipt_analysis()
         if ocr_text:
@@ -151,7 +150,5 @@ def main():
     elif menu == "예산 관리":
         budget_management([])
 
-
-# 웹앱 실행
 if __name__ == "__main__":
     main()
