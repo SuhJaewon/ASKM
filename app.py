@@ -92,13 +92,11 @@ def extract_product_info(text):
         quantity = float(match[1])
         price = int(match[2].replace(',', ''))
         product_info.append((product_name, quantity, price))
-        
+
     return product_info
 
 # 기능 2: 수입과 지출 관리
 def income_expense_management(ocr_text):
-    expense_info_list = []
-    income_info_list = []
 
     with open('dataset.csv', encoding='utf8') as f:
         data = csv.reader(f)
@@ -114,65 +112,13 @@ def income_expense_management(ocr_text):
                     foodcategory = 'food'
                 else:
                     foodcategory = 'others'
-                
+
             st.write(f'카테고리: {foodcategory}')
             st.write(f'수량: {quantity}')
             st.write(f'가격: {price} 동')
             st.write('---')
 
-            if price < 0:
-                expense_info_list.append([product_name, foodcategory, quantity, price])
-            else:
-                income_info_list.append([product_name, foodcategory, quantity, price])
-
-        # 가격에 따른 카테고리별 총 지출 금액 계산
-        expense_categories = list(set([item[1] for item in expense_info_list]))
-        expense_category_expenses = {category: 0 for category in expense_categories}
-
-        for item in expense_info_list:
-            category = item[1]
-            price = float(item[3])
-            expense_category_expenses[category] += price
-
-        # 가격에 따른 카테고리별 총 수입 금액 계산
-        income_categories = list(set([item[1] for item in income_info_list]))
-        income_category_incomes = {category: 0 for category in income_categories}
-
-        for item in income_info_list:
-            category = item[1]
-            price = float(item[3])
-            income_category_incomes[category] += price
-
-        # 카테고리별 지출 금액의 비율을 계산하여 원 그래프로 표시
-        expense_labels = [category for category in expense_category_expenses.keys()]
-        expense_sizes = [expense for expense in expense_category_expenses.values()]
-
-        fig, ax = plt.subplots()
-        ax.pie(expense_sizes, labels=expense_labels, autopct='%1.1f%%', startangle=90)
-        ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-        plt.title('Expense Categories')
-        plt.show()
-        st.pyplot(fig)
-
-        # 카테고리별 수입 금액의 비율을 계산하여 원 그래프로 표시
-        income_labels = [category for category in income_category_incomes.keys()]
-        income_sizes = [income for income in income_category_incomes.values()]
-
-        fig, ax = plt.subplots()
-        ax.pie(income_sizes, labels=income_labels, autopct='%1.1f%%', startangle=90)
-        ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-        plt.title('Income Categories')
-        plt.show()
-        st.pyplot(fig)
-
-    # 지출 합계와 수입 출력
-    total_expense = sum(item[3] for item in expense_info_list)
-    total_income = sum(item[3] for item in income_info_list)
-
-    st.write(f'총 지출: {total_expense} 동')
-    st.write(f'총 수입: {total_income} 동')
-
-    return expense_info_list, income_info_list
+    return product_info
 
 # 기능 3: 예산 관리
 def budget_management(product_info_list):
