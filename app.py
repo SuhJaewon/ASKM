@@ -8,7 +8,12 @@ import re
 import csv
 import matplotlib.pyplot as plt
 
+# Streamlit 애플리케이션에 한글 폰트 적용
+st.set_option('deprecation.showPyplotGlobalUse', False)
+
 Image.MAX_IMAGE_PIXELS = None
+import matplotlib as mpl
+print(mpl.matplotlib_fname())
 
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 
@@ -80,8 +85,19 @@ def extract_product_info(text):
 
 def income_expense_management(ocr_text):
     productinfos = extract_product_info(ocr_text)
-    totalapp = st.text_input('예산을 입력해주세요', value='0')
 
+    with open('dataset.csv', encoding='utf8') as f:
+        data = csv.reader(f)
+        next(data)
+        data = list(data)
+
+        for product in productinfos:
+            product_name, quantity, price = product
+            st.write(f'상품명: {product_name}')
+            st.write(f'수량: {quantity}')
+            st.write(f'가격: {price} 동')
+            st.write('---')
+    totalapp = st.text_input('예산을 입력해주세요', value='0')
     totalspn = 0
     for row in productinfos:
         totalspn += int(row[2])
@@ -103,26 +119,19 @@ def income_expense_management(ocr_text):
         if left_used_categories[i] < 0:
             left_used_categories[i] = 0
 
-    st.write(left_used_categories)
-    labels = ['Money Left', 'Food Spend', 'Other Spend']
-    my_colours = ["#dde5b6", "#adc178", "#a98467"]
+    labels = ['Money', 'Food spend', 'Other spend']
+    # Remove labels with 0 values and update indices
+    indices = [i for i, value in enumerate(left_used_categories) if value != 0]
+    labels = [labels[i] for i in indices]
+
+    # Create a new list of values based on indices
+    left_used_categories = [left_used_categories[i] for i in indices] 
 
     fig, ax = plt.subplots()
-    ax.pie(left_used_categories, labels=labels, startangle=90, shadow=True, autopct='%.1f%%', colors=my_colours)
+    w = {"edgecolor": "black", "linewidth": 3}
+    ax.pie(left_used_categories, startangle=90, autopct='%.1f', wedgeprops=w)
+    ax.legend(labels)
     st.pyplot(fig)
-
-    with open('dataset.csv', encoding='utf8') as f:
-        data = csv.reader(f)
-        next(data)
-        data = list(data)
-
-        for product in productinfos:
-            product_name, quantity, price = product
-            st.write(f'상품명: {product_name}')
-            st.write(f'수량: {quantity}')
-            st.write(f'가격: {price} 동')
-            st.write('---')
-
     return productinfos
 
 def budget_management(product_info_list):
