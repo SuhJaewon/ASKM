@@ -73,7 +73,7 @@ def receipt_analysis(total_budget):
 
                 product_info_list = income_expense_management(extracted_text, total_budget)
                 budget_management(product_info_list)
-
+                st.text(product_info_list)
 def extract_product_info(text):
     item_pattern = r'([\w\s]+)\s+(\d+\.\d+)\s+([\d,]+)'
     product_info = []
@@ -165,7 +165,7 @@ def budget_management(product_info_list):
     st.write("총 수입: ", total_income)
     st.write("총 지출: ", total_expense)
     st.write("예산 잔액: ", remaining_budget)
-
+    
     if remaining_budget < 0:
         st.write("예산 초과!")
     else:
@@ -185,7 +185,6 @@ def budget_management(product_info_list):
 def main():
     with col1 :
         st.title("ASKM")
-        st.warning('예산을 입력해주세요')
         total_budget = st.text_input('', value='0')
         st.warning('예산을 입력해주세요')
         if total_budget:
